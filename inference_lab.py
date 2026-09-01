@@ -4724,7 +4724,7 @@ def _(
         return {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
-            "HTTP-Referer": "https://github.com/ElArkk/learn-inference",
+            "HTTP-Referer": "https://github.com/ElArkk/learn-bayesian-inference",
             "X-Title": "Bayesian Inference at the Corner Bakery",
         }
 

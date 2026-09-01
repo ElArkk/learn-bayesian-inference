@@ -1,5 +1,5 @@
 [project]
-name = "inference-lab"
+name = "learn-bayesian-inference"
 version = "0.1.0"
 description = "An interactive marimo laboratory for Bayesian inference and optimization"
 readme = "README.md"

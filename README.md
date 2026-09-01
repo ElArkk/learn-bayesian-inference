@@ -8,7 +8,7 @@ All commands below use it.
 
 ## Try it in the cloud
 
-[![Open in molab](https://marimo.io/molab-shield.svg)](https://molab.marimo.io/github/ElArkk/learn-inference/blob/main/inference_lab.py)
+[![Open in molab](https://marimo.io/molab-shield.svg)](https://molab.marimo.io/github/ElArkk/learn-bayesian-inference/blob/main/inference_lab.py)
 
 The badge opens the course on [molab](https://docs.marimo.io/guides/molab/),
 marimo's free cloud environment. No installation is needed, and PyMC and JAX
