@@ -5759,6 +5759,26 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
+def _(mo):
+    tutor_key_field = mo.ui.text(
+        kind="password",
+        label="Session API key (OpenRouter)",
+        full_width=True,
+    )
+    return (tutor_key_field,)
+
+
+@app.cell(hide_code=True)
+def _(os, tutor_key_field):
+    # Session-only: the key goes into process memory, never into a file.
+    # This is the safe path on molab, where forked notebooks carry files along.
+    if tutor_key_field.value:
+        os.environ["OPENROUTER_API_KEY"] = tutor_key_field.value
+    tutor_key_applied = bool(tutor_key_field.value)
+    return (tutor_key_applied,)
+
+
+@app.cell(hide_code=True)
 def _(
     OPENROUTER_MODEL,
     get_openrouter_api_key,
@@ -5789,6 +5809,8 @@ def _(
     mo,
     sidebar_width,
     tutor_chat,
+    tutor_key_applied,
+    tutor_key_field,
 ):
     all_lab_ui = (
         lab00_ui, lab01_ui, lab02_ui, lab03_ui, lab04_ui, lab05_ui,
@@ -5797,10 +5819,12 @@ def _(
         lab18_ui, lab19_ui, lab20_ui, lab21_ui, lab22_ui, lab23_ui,
     )
     completed_labs = sum(bool(ui["done"].value) for ui in all_lab_ui)
+    tutor_ready = bool(get_openrouter_api_key()) or tutor_key_applied
     key_status = (
         "OpenRouter is configured."
-        if get_openrouter_api_key()
-        else "Add a key in Settings → AI → OpenRouter to enable tutor feedback."
+        if tutor_ready
+        else "Paste an OpenRouter key below (kept only in this session), or add "
+        "one in Settings → AI → OpenRouter."
     )
     navigation = " ".join(f"[{index:02d}](#lab-{index:02d})" for index in range(24))
     mo.sidebar(
@@ -5811,7 +5835,8 @@ def _(
                 mo.md(f"**Progress:** {completed_labs}/24 labs"),
                 mo.Html(f"<progress value='{completed_labs}' max='24' style='width:100%'></progress>"),
                 mo.md(f"**Labs**  \n{navigation}"),
-                mo.callout(key_status, kind="success" if get_openrouter_api_key() else "info", title="Tutor status"),
+                mo.callout(key_status, kind="success" if tutor_ready else "info", title="Tutor status"),
+                tutor_key_field,
                 mo.md("## Ask the tutor"),
                 tutor_chat,
             ]
@@ -5823,8 +5848,8 @@ def _(
 
 
 @app.cell(hide_code=True)
-def _(get_openrouter_api_key, mo):
-    _tutor_is_ready = bool(get_openrouter_api_key())
+def _(get_openrouter_api_key, mo, tutor_key_applied):
+    _tutor_is_ready = bool(get_openrouter_api_key()) or tutor_key_applied
     _tutor_status = mo.callout(
         (
             "The course tutor is ready. Your API key is not shown in the notebook."
@@ -5891,6 +5916,13 @@ def _(get_openrouter_api_key, mo):
                 In the project folder, copy `.env.example` to `.env`, set
                 `OPENROUTER_API_KEY=your-key`, and restart the local notebook. The `.env` file is
                 ignored by Git. Never paste an API key into a Python or Markdown cell.
+
+                **On molab or another shared machine**
+
+                Paste the key into the **Session API key** field in the course sidebar.
+                The key stays only in this session's memory and is not written to a file.
+                Do not use a `.env` file on molab: a fork of a shared notebook carries
+                its files along.
                 """
             ),
             _tutor_status,
