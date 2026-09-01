@@ -5763,6 +5763,7 @@ def _(mo):
     tutor_key_field = mo.ui.text(
         kind="password",
         label="Session API key (OpenRouter)",
+        placeholder="paste key, then press Enter",
         full_width=True,
     )
     return (tutor_key_field,)
@@ -5823,8 +5824,8 @@ def _(
     key_status = (
         "OpenRouter is configured."
         if tutor_ready
-        else "Paste an OpenRouter key below (kept only in this session), or add "
-        "one in Settings → AI → OpenRouter."
+        else "Paste an OpenRouter key below and press Enter (kept only in this "
+        "session), or add one in Settings → AI → OpenRouter."
     )
     navigation = " ".join(f"[{index:02d}](#lab-{index:02d})" for index in range(24))
     mo.sidebar(
@@ -5919,7 +5920,8 @@ def _(get_openrouter_api_key, mo, tutor_key_applied):
 
                 **On molab or another shared machine**
 
-                Paste the key into the **Session API key** field in the course sidebar.
+                Paste the key into the **Session API key** field in the course sidebar,
+                then press **Enter** to apply it.
                 The key stays only in this session's memory and is not written to a file.
                 Do not use a `.env` file on molab: a fork of a shared notebook carries
                 its files along.
