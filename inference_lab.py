@@ -4622,7 +4622,12 @@ def _(
 
             provider = get_context().marimo_config.get("ai", {}).get("openrouter", {})
             configured_key = str(provider.get("api_key", "") or "").strip()
-            return configured_key or None
+            # Real OpenRouter keys start with sk-or-. molab preconfigures this
+            # setting with an internal token for its free models; sending that
+            # to openrouter.ai fails with "Missing Authentication header".
+            if configured_key.startswith("sk-or-"):
+                return configured_key
+            return None
         except Exception:
             return None
 
@@ -5813,9 +5818,9 @@ def _(mo):
 def _(os, tutor_key_field):
     # Session-only: the key goes into process memory, never into a file.
     # This is the safe path on molab, where forked notebooks carry files along.
-    if tutor_key_field.value:
-        os.environ["OPENROUTER_API_KEY"] = tutor_key_field.value
-    tutor_key_applied = bool(tutor_key_field.value)
+    if tutor_key_field.value.strip():
+        os.environ["OPENROUTER_API_KEY"] = tutor_key_field.value.strip()
+    tutor_key_applied = bool(tutor_key_field.value.strip())
     return (tutor_key_applied,)
 
 
