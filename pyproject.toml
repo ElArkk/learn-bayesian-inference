@@ -1,0 +1,50 @@
+[project]
+name = "inference-lab"
+version = "0.1.0"
+description = "An interactive marimo laboratory for Bayesian inference and optimization"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "arviz>=0.22",
+  "httpx>=0.28",
+  "marimo[lsp]>=0.23.15,<0.24",
+  "matplotlib>=3.10",
+  "numpy>=2.2",
+  "pandas>=2.2",
+  "pymc>=5.25",
+  "scipy>=1.15",
+  "torch>=2.7",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.4",
+  "ruff>=0.12",
+]
+
+[tool.marimo.runtime]
+cache_cells = false
+dotenv = [".env"]
+
+[tool.marimo.language_servers.pylsp]
+enabled = true
+enable_mypy = false
+enable_ruff = true
+
+[tool.marimo.diagnostics]
+enabled = true
+
+[tool.marimo.completion]
+activate_on_typing = true
+signature_hint_on_typing = true
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint.per-file-ignores]
+"inference_lab.py" = ["B018", "BLE001", "F401", "F841", "ISC004", "PIE790", "PLR1711", "S102"]
+"tests/test_notebook.py" = ["S102"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

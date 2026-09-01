@@ -1,0 +1,15 @@
+.venv/
+.env
+__marimo__/
+.marimo/
+.pytest_cache/
+__pycache__/
+*.pyc
+public/
+my_lab.py
+.my_lab.base
+.my_lab.running
+my_lab.py.backup
+my_lab.py.merge-conflict-*.py
+tasks/
+.ruff_cache/
