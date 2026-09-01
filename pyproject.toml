@@ -13,7 +13,7 @@ dependencies = [
   "pandas>=2.2",
   "pymc>=5.25",
   "scipy>=1.15",
-  "torch>=2.7",
+  "jax>=0.6",
 ]
 
 [dependency-groups]

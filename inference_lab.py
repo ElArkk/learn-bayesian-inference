@@ -9,7 +9,7 @@
 #     "pandas>=2.2",
 #     "pymc>=5.25; sys_platform != 'emscripten'",
 #     "scipy>=1.15",
-#     "torch>=2.7; sys_platform != 'emscripten'",
+#     "jax>=0.6; sys_platform != 'emscripten'",
 # ]
 # ///
 
@@ -1531,7 +1531,7 @@ def journey_guides():
       'experiment': 'The contour map is the same target as Lab 7. Arrows are normalized so '
                     'that you can inspect direction without long arrows hiding short ones. '
                     'Follow several arrows toward the mode by eye.',
-      'exercise_intro': 'The implementation changes one coordinate at a time. Torch '
+      'exercise_intro': 'The implementation changes one coordinate at a time. JAX '
                         'autograd later computes the same object for a neural network.',
       'next': 'Chapter 3 keeps the same price-demand landscape but adds momentum, which '
               'turns local slope into long posterior travel.',
@@ -3500,7 +3500,7 @@ def _(
             target = np.exp(logp(grid) - np.max(logp(grid)))
             target /= np.trapezoid(target, grid)
             manual_mean, manual_sd = values["q mean"], values["q sd"]
-            optimized_mean, optimized_sd, engine = _optimize_vi(logp, seed, is_wasm, importlib, np)
+            optimized_mean, optimized_sd, engine = _optimize_vi(logp, seed, is_wasm)
             fig, ax = plt.subplots(figsize=(8, 4))
             ax.plot(grid, target, color=COLORS["posterior"], lw=3, label="target")
             ax.plot(grid, np.exp(-0.5 * ((grid - manual_mean) / manual_sd) ** 2) / (manual_sd * np.sqrt(2 * np.pi)), color=COLORS["accent"], lw=2, ls="--", label="your q")
@@ -3645,21 +3645,35 @@ def _(
             x = np.linspace(-2, 2, 80)[:, None]
             y = np.sin(2.2 * x[:, 0]) + rng.normal(0, 0.12, len(x))
             if not is_wasm:
-                torch = _import_optional("torch")
-                torch.manual_seed(seed)
-                xt = torch.tensor(x, dtype=torch.float32)
-                yt = torch.tensor(y[:, None], dtype=torch.float32)
-                model = torch.nn.Sequential(torch.nn.Linear(1, 8), torch.nn.Tanh(), torch.nn.Linear(8, 1))
-                optimizer = torch.optim.Adam(model.parameters(), lr=0.03)
-                losses = []
-                for _ in range(steps):
-                    optimizer.zero_grad(); prediction = model(xt)
-                    data_loss = torch.mean((prediction - yt) ** 2)
-                    penalty = 0.5 * l2 * sum(torch.sum(p**2) for p in model.parameters()) / len(x)
-                    loss = data_loss + penalty; loss.backward(); optimizer.step(); losses.append(float(loss.detach()))
-                prediction = model(xt).detach().numpy()[:, 0]
-                weight_norm = float(np.sqrt(sum(float(torch.sum(p.detach() ** 2)) for p in model.parameters())))
-                engine = "Torch autograd"
+                jax = _import_optional("jax")
+                jnp = jax.numpy
+                init_rng = np.random.default_rng(seed)
+                weights = {
+                    "w1": jnp.asarray(init_rng.normal(0.0, 0.5, (1, 8))),
+                    "b1": jnp.zeros(8),
+                    "w2": jnp.asarray(init_rng.normal(0.0, 0.5, (8, 1))),
+                    "b2": jnp.zeros(1),
+                }
+
+                def mlp(params, inputs):
+                    hidden = jnp.tanh(inputs @ params["w1"] + params["b1"])
+                    return hidden @ params["w2"] + params["b2"]
+
+                def map_objective(params):
+                    data_loss = jnp.mean((mlp(params, x) - y[:, None]) ** 2)
+                    squared_norm = sum(
+                        jnp.sum(w**2) for w in jax.tree_util.tree_leaves(params)
+                    )
+                    return data_loss + 0.5 * l2 * squared_norm / len(x)
+
+                weights, losses = _jax_adam(map_objective, weights, steps=steps, lr=0.03)
+                prediction = np.asarray(mlp(weights, x))[:, 0]
+                weight_norm = float(
+                    np.sqrt(
+                        sum(float(jnp.sum(w**2)) for w in jax.tree_util.tree_leaves(weights))
+                    )
+                )
+                engine = "JAX autograd"
             else:
                 features = np.column_stack([np.ones(len(x)), x[:, 0], x[:, 0] ** 2, x[:, 0] ** 3, x[:, 0] ** 4, x[:, 0] ** 5])
                 weights = np.linalg.solve(features.T @ features + l2 * np.eye(features.shape[1]), features.T @ y)
@@ -3696,20 +3710,46 @@ def _(
     def norm_pdf(x, mean, sd):
         return np.exp(-0.5 * ((np.asarray(x) - mean) / sd) ** 2) / (sd * np.sqrt(2 * np.pi))
 
-    def _optimize_vi(logp, seed, is_wasm, importlib, np):
+    def _jax_adam(loss_fn, params, steps, lr):
+        # Adam written out by hand: the update rule stays inspectable, and the
+        # course needs no extra optimizer library.
+        jax = _import_optional("jax")
+        jnp = jax.numpy
+        tree_map = jax.tree_util.tree_map
+        value_and_grad = jax.value_and_grad(loss_fn)
+        m = tree_map(lambda p: p * 0.0, params)
+        v = tree_map(lambda p: p * 0.0, params)
+        losses = []
+        for step in range(1, steps + 1):
+            loss, g = value_and_grad(params)
+            m = tree_map(lambda a, b: 0.9 * a + 0.1 * b, m, g)
+            v = tree_map(lambda a, b: 0.999 * a + 0.001 * b * b, v, g)
+            scale = lr * float(np.sqrt(1 - 0.999**step)) / (1 - 0.9**step)
+            params = tree_map(
+                lambda p, mi, vi, s=scale: p - s * mi / (jnp.sqrt(vi) + 1e-8),
+                params,
+                m,
+                v,
+            )
+            losses.append(float(loss))
+        return params, losses
+
+
+    def _optimize_vi(logp, seed, is_wasm):
         if not is_wasm:
-            torch = _import_optional("torch")
-            torch.manual_seed(seed)
-            mean = torch.tensor(0.0, dtype=torch.float64, requires_grad=True)
-            log_sd = torch.tensor(0.0, dtype=torch.float64, requires_grad=True)
-            optimizer = torch.optim.Adam([mean, log_sd], lr=0.04)
-            eps = torch.randn(1600, dtype=torch.float64)
-            for _ in range(180):
-                optimizer.zero_grad(); sample = mean + torch.exp(log_sd) * eps
-                log_target = -0.5 * sample**2 + 1.5 * torch.tanh(sample)
-                log_q = -0.5 * eps**2 - log_sd - 0.5 * np.log(2 * np.pi)
-                loss = -(log_target - log_q).mean(); loss.backward(); optimizer.step()
-            return float(mean.detach()), float(torch.exp(log_sd).detach()), "Torch autograd"
+            jax = _import_optional("jax")
+            jnp = jax.numpy
+            eps = jnp.asarray(np.random.default_rng(seed).normal(size=1600))
+
+            def negative_elbo(params):
+                mean, log_sd = params
+                sample = mean + jnp.exp(log_sd) * eps
+                log_target = -0.5 * sample**2 + 1.5 * jnp.tanh(sample)
+                log_q = -0.5 * eps**2 - log_sd - 0.5 * jnp.log(2 * jnp.pi)
+                return -jnp.mean(log_target - log_q)
+
+            params, _ = _jax_adam(negative_elbo, jnp.zeros(2), steps=180, lr=0.04)
+            return float(params[0]), float(np.exp(params[1])), "JAX autograd"
         eps = np.random.default_rng(seed).normal(size=2500)
         params = np.array([0.0, 0.0])
         def objective(p):
@@ -6964,7 +7004,7 @@ def _():
                     'e_i)-f(\\theta-\\varepsilon e_i)}{2\\varepsilon}.$$\n'
                     '\n'
                     '        This needs two function evaluations per coordinate, so it '
-                    'becomes costly in large models. Torch and other autodiff systems '
+                    'becomes costly in large models. JAX and other autodiff systems '
                     'compute the same mathematical object more efficiently. Near a smooth '
                     'mode, arrows become shorter because the local slope approaches zero.\n'
                     '        ',

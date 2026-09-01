@@ -11,7 +11,7 @@ All commands below use it.
 [![Open in molab](https://marimo.io/molab-shield.svg)](https://molab.marimo.io/github/ElArkk/learn-inference/blob/main/inference_lab.py)
 
 The badge opens the course on [molab](https://docs.marimo.io/guides/molab/),
-marimo's free cloud environment. No installation is needed, and PyMC and Torch
+marimo's free cloud environment. No installation is needed, and PyMC and JAX
 run there. To enable the tutor, paste your OpenRouter key into the **Session API
 key** field in the course sidebar. The key stays in session memory only. Do not
 create a `.env` file on molab: forks of shared notebooks carry files along.
@@ -100,5 +100,5 @@ uv run marimo check --strict my_lab.py
 uv run pytest -q
 ```
 
-The notebook uses fixed random seeds. Heavy PyMC and Torch work starts only from
+The notebook uses fixed random seeds. Heavy PyMC and JAX work starts only from
 the related lab controls.
